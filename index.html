@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Notes Schedule</title>
+    <title>School Up</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -92,15 +92,13 @@
         .subject-card {
             background: var(--card-bg);
             border-radius: 12px;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            padding-left: 16px;
-            padding-right: 16px;
+            padding: 8px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
             transition: transform 0.1s;
+            margin-bottom: 12px;
         }
         .subject-card:hover { background: #2c2c2e; } /* PC Hover effect */
         .subject-card:active { transform: scale(0.98); }
@@ -152,7 +150,7 @@
             align-self: center;
             font-size: 13px;
             color: var(--text-muted);
-            margin: 4px 0;
+            margin: 4px 0 16px;
             font-weight: 500;
         }
 
@@ -177,7 +175,7 @@
 
         .modal-content {
             width: 100%;
-            max-width: 500px; /* --- PC OPTIMIZATION: Prevents modal from stretching on wide screens --- */
+            max-width: 500px;
             background: var(--card-bg);
             border-radius: 20px 20px 0 0;
             padding: 24px 20px max(40px, env(safe-area-inset-bottom));
@@ -185,10 +183,9 @@
             transition: 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        /* Center modal vertically on PC */
         @media (min-width: 600px) {
             .modal-overlay { align-items: center; }
-            .modal-content { border-radius: 20px; }
+            .modal-content { border-radius: 20px; padding-bottom: 30px; }
         }
 
         .modal-overlay.active .modal-content {
@@ -260,45 +257,100 @@
         .btn-primary { background: var(--accent); color: black; }
         .btn-danger { background: #2c2c2e; color: var(--danger); margin-top: 24px; }
 
-        /* Floating Action Buttons */
-        .fab-container {
+        /* --- Expanding FAB Menu Setup --- */
+        .fab-wrapper {
             position: fixed;
             bottom: max(30px, env(safe-area-inset-bottom));
             right: 20px;
             display: flex;
-            gap: 12px;
+            flex-direction: column;
+            align-items: flex-end;
             z-index: 100;
         }
 
-        /* Keep FABs near the content on PC */
         @media (min-width: 700px) {
-            .fab-container {
+            .fab-wrapper {
                 right: calc(50% - 300px + 20px);
             }
         }
 
-        .fab {
-            width: 50px;
-            height: 50px;
-            border-radius: 25px;
+        .fab-menu {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 12px;
+            margin-bottom: 16px;
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform-origin: bottom right;
+        }
+
+        .fab-wrapper.active .fab-menu {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: all;
+        }
+
+        .fab-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .fab-label {
+            background: var(--card-bg);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .fab-sub {
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 20px;
+            font-size: 18px;
             background: var(--card-bg);
             color: var(--accent);
             border: none;
-            cursor: pointer;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            pointer-events: none; /* Let the wrapper handle clicks */
         }
-        .fab:hover { background: #2c2c2e; } /* PC Hover effect */
+
+        .fab-item:hover .fab-sub, .fab-item:hover .fab-label {
+            background: #2c2c2e;
+        }
 
         .fab-main {
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
             background: var(--accent);
             color: black;
-            font-size: 24px;
+            font-size: 28px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s;
         }
+
         .fab-main:hover { background: #e5c009; }
+        
+        /* Rotates the + to an x when open */
+        .fab-wrapper.active .fab-main {
+            transform: rotate(45deg);
+        }
 
         /* Slide to Delete */
         .slider-container {
@@ -363,11 +415,23 @@
             </div>
     </div>
 
-    <div class="fab-container">
-        <button class="fab" onclick="exportData()" title="Export Schedule">⬇️</button>
-        <button class="fab" onclick="document.getElementById('import-file').click()" title="Import Schedule">⬆️</button>
+    <div class="fab-wrapper" id="fab-wrapper">
+        <div class="fab-menu">
+            <div class="fab-item" onclick="exportData()">
+                <span class="fab-label">Export Data</span>
+                <div class="fab-sub">⬇️</div>
+            </div>
+            <div class="fab-item" onclick="document.getElementById('import-file').click()">
+                <span class="fab-label">Import Data</span>
+                <div class="fab-sub">⬆️</div>
+            </div>
+            <div class="fab-item" onclick="openModal()">
+                <span class="fab-label">Add Subject</span>
+                <div class="fab-sub" style="font-size: 20px;">📝</div>
+            </div>
+        </div>
+        <button class="fab-main" onclick="toggleFabMenu()">+</button>
         <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(event)">
-        <button class="fab fab-main" onclick="openModal()" title="Add Subject">+</button>
     </div>
 
     <div class="modal-overlay" id="edit-modal">
@@ -427,6 +491,19 @@
                     renderSchedule(selectedDay);
                 }
             }, 60000);
+
+            // Close FAB menu when clicking anywhere else
+            document.addEventListener('click', (e) => {
+                const wrapper = document.getElementById('fab-wrapper');
+                if (wrapper.classList.contains('active') && !wrapper.contains(e.target)) {
+                    wrapper.classList.remove('active');
+                }
+            });
+        }
+
+        // FAB Menu Toggle
+        function toggleFabMenu() {
+            document.getElementById('fab-wrapper').classList.toggle('active');
         }
 
         function renderDaySelector() {
@@ -526,6 +603,9 @@
         }
 
         function openModal(id = null) {
+            // Force close FAB menu if it's open
+            document.getElementById('fab-wrapper').classList.remove('active');
+
             const modal = document.getElementById('edit-modal');
             const title = document.getElementById('modal-title');
             const delBtn = document.getElementById('init-delete-btn');
@@ -652,6 +732,7 @@
         }
 
         function exportData() {
+            document.getElementById('fab-wrapper').classList.remove('active'); // Close menu
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(schedule));
             const dlAnchorElem = document.createElement('a');
             dlAnchorElem.setAttribute("href", dataStr);
@@ -660,6 +741,7 @@
         }
 
         function importData(event) {
+            document.getElementById('fab-wrapper').classList.remove('active'); // Close menu
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
