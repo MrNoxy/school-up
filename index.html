@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iOS 26 Schedule</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-main: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.6);
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --safe-area-top: env(safe-area-inset-top, 20px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: radial-gradient(circle at top left, #2c1b4d, #000000, #0a2e3f);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-attachment: fixed;
+            padding-top: var(--safe-area-top);
+            padding-bottom: 100px;
+        }
+
+        /* Glassmorphism utility */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+        }
+
+        header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .day-selector {
+            display: flex;
+            overflow-x: auto;
+            padding: 0 20px 20px;
+            gap: 10px;
+            scrollbar-width: none; /* Firefox */
+        }
+        .day-selector::-webkit-scrollbar { display: none; } /* Safari/Chrome */
+
+        .day-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            white-space: nowrap;
+        }
+
+        .day-btn.active {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        #schedule-container {
+            padding: 0 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .subject-card {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .subject-card:active { transform: scale(0.98); }
+
+        .subject-info h2 {
+            font-size: 20px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .subject-time {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .break-pill {
+            align-self: center;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 4px 0;
+            display: inline-block;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            width: 100%;
+            background: rgba(30, 30, 30, 0.8);
+            border-radius: 32px 32px 0 0;
+            padding: 30px 20px 40px;
+            transform: translateY(100%);
+            transition: 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        input[type="text"], input[type="time"], input[type="color"] {
+            width: 100%;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 16px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn-primary { background: white; color: black; }
+        .btn-danger { background: rgba(255, 59, 48, 0.2); color: #ff453a; border: 1px solid rgba(255, 59, 48, 0.4); margin-top: 20px;}
+        .btn-cancel { background: transparent; color: white; margin-top: 10px; }
+
+        /* Floating Action Buttons */
+        .fab-container {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Slide to Delete */
+        .slider-container {
+            position: relative;
+            width: 100%;
+            height: 60px;
+            background: rgba(255, 59, 48, 0.2);
+            border-radius: 30px;
+            margin-top: 20px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .slider-text {
+            position: absolute;
+            width: 100%;
+            line-height: 60px;
+            text-align: center;
+            color: #ff453a;
+            font-weight: 600;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .slider-thumb {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 52px;
+            height: 52px;
+            background: #ff453a;
+            border-radius: 26px;
+            z-index: 2;
+            cursor: grab;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .slider-thumb::after {
+            content: '→';
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .settings-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Schedule</h1>
+    </header>
+
+    <div class="day-selector" id="day-selector">
+        </div>
+
+    <div id="schedule-container">
+        </div>
+
+    <div class="fab-container">
+        <button class="fab glass" onclick="exportData()">⬇️</button>
+        <button class="fab glass" onclick="document.getElementById('import-file').click()">⬆️</button>
+        <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(event)">
+        <button class="fab glass" style="background: white; color: black;" onclick="openModal()">+</button>
+    </div>
+
+    <div class="modal-overlay glass" id="edit-modal">
+        <div class="modal-content glass">
+            <h2 id="modal-title" style="margin-bottom: 20px;">Add Subject</h2>
+            <input type="hidden" id="edit-id">
+            
+            <div class="input-group">
+                <label>Subject Name</label>
+                <input type="text" id="subj-name" placeholder="e.g. Mathematics">
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>Start Time</label>
+                    <input type="time" id="subj-start">
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>End Time</label>
+                    <input type="time" id="subj-end">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Color Accent</label>
+                <input type="color" id="subj-color" value="#0a84ff">
+            </div>
+
+            <button class="btn btn-primary" onclick="saveSubject()">Save</button>
+            <button class="btn btn-danger" id="init-delete-btn" onclick="showSlider()" style="display:none;">Delete Subject</button>
+            
+            <div class="slider-container" id="delete-slider-container">
+                <div class="slider-text">slide to delete</div>
+                <div class="slider-thumb" id="delete-thumb"></div>
+            </div>
+
+            <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        let currentDay = days[new Date().getDay()]; 
+        
+        // If it's weekend, default to Monday to be helpful
+        if(currentDay === 'Sunday' || currentDay === 'Saturday') currentDay = 'Monday';
+
+        let schedule = JSON.parse(localStorage.getItem('ios26_schedule')) || {
+            'Monday': [], 'Tuesday': [], 'Wednesday': [], 'Thursday': [], 'Friday': []
+        };
+
+        // Initialize UI
+        function init() {
+            renderDaySelector();
+            renderSchedule(currentDay);
+            setupSlider();
+        }
+
+        function renderDaySelector() {
+            const container = document.getElementById('day-selector');
+            container.innerHTML = '';
+            ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].forEach(day => {
+                const btn = document.createElement('button');
+                btn.className = `day-btn ${day === currentDay ? 'active' : ''}`;
+                btn.innerText = day;
+                btn.onclick = () => {
+                    currentDay = day;
+                    renderDaySelector();
+                    renderSchedule(day);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderSchedule(day) {
+            const container = document.getElementById('schedule-container');
+            container.innerHTML = '';
+            
+            let daySubjects = schedule[day] || [];
+            
+            // Sort by start time
+            daySubjects.sort((a, b) => a.start.localeCompare(b.start));
+
+            if(daySubjects.length === 0) {
+                container.innerHTML = `<p style="text-align:center; color: var(--text-muted); margin-top: 40px;">No classes today! Chill out.</p>`;
+                return;
+            }
+
+            daySubjects.forEach((subj, index) => {
+                // Check for breaks
+                if (index > 0) {
+                    const prevEnd = daySubjects[index-1].end;
+                    const currStart = subj.start;
+                    const breakMins = getMinutesDiff(prevEnd, currStart);
+                    
+                    if (breakMins > 0) {
+                        const breakEl = document.createElement('div');
+                        breakEl.className = 'break-pill';
+                        breakEl.innerText = `${breakMins} min break`;
+                        container.appendChild(breakEl);
+                    }
+                }
+
+                // Render Subject Card
+                const card = document.createElement('div');
+                card.className = 'subject-card glass';
+                // Apply the beautiful acrylic frosted color mix
+                card.style.background = `color-mix(in srgb, ${subj.color} 15%, var(--glass-bg))`;
+                card.style.borderColor = `color-mix(in srgb, ${subj.color} 30%, var(--glass-border))`;
+                
+                card.innerHTML = `
+                    <div class="subject-info">
+                        <h2>${subj.name}</h2>
+                        <div class="subject-time">${subj.start} — ${subj.end}</div>
+                    </div>
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: ${subj.color}; box-shadow: 0 0 10px ${subj.color};"></div>
+                `;
+                
+                card.onclick = () => openModal(subj.id);
+                container.appendChild(card);
+            });
+        }
+
+        function getMinutesDiff(start, end) {
+            const [sH, sM] = start.split(':').map(Number);
+            const [eH, eM] = end.split(':').map(Number);
+            return (eH * 60 + eM) - (sH * 60 + sM);
+        }
+
+        // Modal Logic
+        function openModal(id = null) {
+            const modal = document.getElementById('edit-modal');
+            const title = document.getElementById('modal-title');
+            const delBtn = document.getElementById('init-delete-btn');
+            const slider = document.getElementById('delete-slider-container');
+            
+            slider.style.display = 'none'; // Hide slider initially
+            resetSlider();
+
+            if (id) {
+                const subj = schedule[currentDay].find(s => s.id === id);
+                title.innerText = "Edit Subject";
+                document.getElementById('edit-id').value = id;
+                document.getElementById('subj-name').value = subj.name;
+                document.getElementById('subj-start').value = subj.start;
+                document.getElementById('subj-end').value = subj.end;
+                document.getElementById('subj-color').value = subj.color;
+                delBtn.style.display = 'block';
+            } else {
+                title.innerText = "Add Subject";
+                document.getElementById('edit-id').value = '';
+                document.getElementById('subj-name').value = '';
+                document.getElementById('subj-start').value = '08:00';
+                document.getElementById('subj-end').value = '08:50';
+                document.getElementById('subj-color').value = '#0a84ff';
+                delBtn.style.display = 'none';
+            }
+            
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').classList.remove('active');
+        }
+
+        function saveSubject() {
+            const id = document.getElementById('edit-id').value;
+            const newSubj = {
+                id: id ? id : Date.now().toString(),
+                name: document.getElementById('subj-name').value || 'Unnamed Subject',
+                start: document.getElementById('subj-start').value,
+                end: document.getElementById('subj-end').value,
+                color: document.getElementById('subj-color').value
+            };
+
+            if (!schedule[currentDay]) schedule[currentDay] = [];
+
+            if (id) {
+                const index = schedule[currentDay].findIndex(s => s.id === id);
+                schedule[currentDay][index] = newSubj;
+            } else {
+                schedule[currentDay].push(newSubj);
+            }
+
+            saveData();
+            closeModal();
+            renderSchedule(currentDay);
+        }
+
+        function deleteSubject(id) {
+            schedule[currentDay] = schedule[currentDay].filter(s => s.id !== id);
+            saveData();
+            closeModal();
+            renderSchedule(currentDay);
+        }
+
+        function saveData() {
+            localStorage.setItem('ios26_schedule', JSON.stringify(schedule));
+        }
+
+        // Slide to Delete Logic (Double Confirmation)
+        function showSlider() {
+            document.getElementById('init-delete-btn').style.display = 'none';
+            document.getElementById('delete-slider-container').style.display = 'block';
+        }
+
+        function setupSlider() {
+            const thumb = document.getElementById('delete-thumb');
+            const container = document.getElementById('delete-slider-container');
+            let isDragging = false;
+            let startX = 0;
+            
+            const handleStart = (e) => {
+                isDragging = true;
+                startX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
+                thumb.style.transition = 'none';
+            };
+
+            const handleMove = (e) => {
+                if (!isDragging) return;
+                const currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
+                let walk = currentX - startX;
+                const maxWalk = container.offsetWidth - thumb.offsetWidth - 8; // 8 is padding
+
+                if (walk < 0) walk = 0;
+                if (walk > maxWalk) walk = maxWalk;
+                
+                thumb.style.transform = `translateX(${walk}px)`;
+
+                // If reached the end, trigger delete
+                if (walk >= maxWalk - 5) {
+                    isDragging = false;
+                    const id = document.getElementById('edit-id').value;
+                    deleteSubject(id);
+                }
+            };
+
+            const handleEnd = () => {
+                if (!isDragging) return;
+                isDragging = false;
+                resetSlider();
+            };
+
+            thumb.addEventListener('mousedown', handleStart);
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('mouseup', handleEnd);
+
+            thumb.addEventListener('touchstart', handleStart);
+            document.addEventListener('touchmove', handleMove);
+            document.addEventListener('touchend', handleEnd);
+        }
+
+        function resetSlider() {
+            const thumb = document.getElementById('delete-thumb');
+            thumb.style.transition = 'transform 0.3s ease';
+            thumb.style.transform = 'translateX(0px)';
+        }
+
+        // Import / Export JSON
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(schedule));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "schedule_ios26.json");
+            dlAnchorElem.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if(imported.Monday) { // simple validation
+                        schedule = imported;
+                        saveData();
+                        renderSchedule(currentDay);
+                        alert('Schedule imported successfully!');
+                    } else {
+                        alert('Invalid schedule file.');
+                    }
+                } catch (err) {
+                    alert('Error reading file.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Run
+        init();
+    </script>
+</body>
+</html>
