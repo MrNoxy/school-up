@@ -344,13 +344,6 @@
   width: 28px;
   height: 28px;
 }
-#quick-pin,
-#link-pin,
-#link-pin-confirm {
-  letter-spacing: 0.7em;
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-}
 #skip-auth .text-button {
   min-height: 42px;
 }

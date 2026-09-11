@@ -6,14 +6,9 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithCustomToken,
   sendEmailVerification,
   sendPasswordResetEmail,
   signOut,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
   getDatabase,
@@ -29,34 +24,20 @@ import {
   runTransaction,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-import {
-  getFunctions,
-  httpsCallable,
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-functions.js";
-import {
-  initializeAppCheck,
-  ReCaptchaV3Provider,
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app-check.js";
-import { SKIP_CONFIG } from "./skip-config.js";
+import { SKIP_CONFIG } from "./skip-config.js?v=spark2";
+import { createSkipData } from "./skip-data.js?v=spark2";
 const S = window.SchoolUp,
   $ = (id) => document.getElementById(id),
   esc = S.esc,
   icon = S.icon;
 const app = initializeApp(SKIP_CONFIG.firebase, "schoolup-skip");
-if (SKIP_CONFIG.appCheckSiteKey)
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(SKIP_CONFIG.appCheckSiteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
 const auth = getAuth(app),
-  db = getDatabase(app),
-  functions = getFunctions(app, SKIP_CONFIG.functionsRegion);
-const call = async (name, data = {}) =>
-  (
-    await httpsCallable(functions, name, {
-      limitedUseAppCheckTokens: name === "schoolupQuickLogin",
-    })(data)
-  ).data;
+  db = getDatabase(app);
+const skipData = createSkipData({
+  auth,
+  db,
+  sdk: { ref, get, update, runTransaction },
+});
 const safe = (email) => email.replace(/\./g, ","),
   dmId = (a, b) => [a, b].sort().join("_");
 let user = null,
@@ -67,8 +48,7 @@ let user = null,
   authError = "",
   registrationName = "",
   generation = 0,
-  authLoading = true,
-  finishingEmail = false;
+  authLoading = true;
 let unsubs = [],
   contactUnsubs = new Map(),
   profiles = new Map(),
@@ -105,19 +85,6 @@ const writeLocal = (key, value) => {
     return false;
   }
 };
-function deviceSecret() {
-  let key = readLocal("schoolup_device_secret");
-  if (!/^[A-Za-z0-9_-]{43}$/.test(key || "")) {
-    key = btoa(
-      String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))),
-    )
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-    writeLocal("schoolup_device_secret", key);
-  }
-  return key;
-}
 function errorMessage(err) {
   const code = err?.code || "";
   if (/invalid-credential|wrong-password|user-not-found/.test(code))
@@ -128,11 +95,7 @@ function errorMessage(err) {
     return "Too many attempts. Try later, or recover access with your Skip email.";
   if (/weak-password/.test(code))
     return "Choose a password with at least 8 characters.";
-  if (
-    /network-request-failed|functions\/unavailable|functions\/internal|functions\/not-found/.test(
-      code,
-    )
-  )
+  if (/network-request-failed|unavailable/.test(code))
     return "Skip account services could not be reached. The app owner may still need to activate this update.";
   if (/permission-denied/.test(code))
     return "Access was denied. Reconnect your account; the app owner may need to update the privacy rules.";
@@ -173,34 +136,23 @@ function renderAccount() {
   }
   if (user) {
     if (!ready) {
-      html += `<h3 class="auth-heading">Connected to Skip</h3><p class="muted">${esc(user.email)}</p><p class="account-notice">${esc(authError || "Loading your account…")}</p><button class="primary full" data-skip-action="retry-session">Retry connection</button><button class="text-button full" data-skip-action="signout">Sign out</button>`;
-    } else if (mode === "pin" || (!session.handle && mode !== "account")) {
-      if (!user.emailVerified) {
-        html += `<h3 class="auth-heading">One quick email check</h3><p class="muted">Verify ${esc(user.email)} before setting up a School Up tag and PIN.</p><button class="primary full" data-skip-action="verify-email">Send verification email</button><button class="secondary full" data-skip-action="refresh-email">I’ve verified my email</button><button class="text-button full" data-skip-action="skip-onboarding">Do this later</button>`;
-      } else {
-        html += `<h3 class="auth-heading">Your very own @tag</h3><p class="auth-description">Use this tag to find friends and sign in quickly. Your Skip profile stays the same.</p><form id="link-account-form">${field("link-handle", "Unique School Up tag", "text", 'minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" autocomplete="username" placeholder="your_tag"')}${field("link-pin", "Choose a 3-digit PIN", "password", 'inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" autocomplete="new-password"')}${field("link-pin-confirm", "Confirm PIN", "password", 'inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" autocomplete="new-password"')}${field("link-password", "Your Skip password", "password", 'autocomplete="current-password"')}<p class="hint">Tags are unique and ignore capitalization. On a new device, we’ll also check your email once. Three wrong PIN attempts lock quick sign-in until you reset it here.</p><button class="primary full" type="submit">${session.handle ? "Update PIN" : "Connect my account"}</button></form><button class="text-button full" data-skip-action="skip-onboarding">${session.handle ? "Back to account" : "Set up later"}</button>`;
-      }
+      html += `<h3 class="auth-heading">Connected to Skip</h3><p class="muted">${esc(user.email)}</p><p class="account-notice">${esc(authError || "Loading your account…")}</p><button class="primary full" data-skip-action="retry-session">Retry connection</button>${!user.emailVerified ? '<button class="text-button full" data-skip-action="verify-email">Verify my email</button>' : ""}<button class="text-button full" data-skip-action="signout">Sign out</button>`;
+    } else if (!session.handle && mode !== "account") {
+      html += `<h3 class="auth-heading">Your very own @tag</h3><p class="auth-description">Choose a unique name so friends can find you in School Up. You’ll sign in with your Skip email and password.</p><form id="link-account-form">${field("link-handle", "Unique School Up tag", "text", 'minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" autocomplete="nickname" autocapitalize="none" spellcheck="false" placeholder="your_tag"')}<p class="hint">3–24 letters, numbers, or underscores. Tags ignore capitalization and are permanent once chosen.</p><button class="primary full" type="submit">Claim my tag</button></form><button class="text-button full" data-skip-action="skip-onboarding">Set up later</button>`;
     } else {
-      html += `<div class="account-identity"><span class="large-avatar">${esc((profile.username || "S")[0].toUpperCase())}</span><h3>${esc(session.handle ? "@" + session.handle : profile.username)}</h3><p class="muted">Skip · ${esc(profile.username)}#${esc(profile.tag || "")}</p></div><div class="account-status"><span>Schedules</span><b id="account-sync-status">${esc($("sync-indicator").textContent)}</b></div><button class="settings-link" data-skip-action="setup-pin"><span class="settings-link-icon">${icon("lock")}</span><span><b>${session.handle ? "Change or recover PIN" : "Set up quick sign-in"}</b><small>${session.quickLoginLocked ? "Quick sign-in is locked" : session.quickLoginEnabled ? "Unique tag + three-digit PIN" : "Connect your School Up tag"}</small></span>${icon("chevron")}</button><button class="settings-link" data-skip-action="import-device"><span class="settings-link-icon">${icon("copy")}</span><span><b>Copy device schedules into account</b><small>Your original device copy is kept</small></span>${icon("chevron")}</button>${session.quickLoginEnabled ? '<button class="text-button danger full" data-skip-action="disable-pin">Disable quick sign-in on all devices</button>' : ""}${SKIP_CONFIG.skipUrl && validUrl(SKIP_CONFIG.skipUrl) ? `<a class="secondary full link-button" href="${esc(SKIP_CONFIG.skipUrl)}" target="_blank" rel="noopener noreferrer">Open Skip</a>` : ""}<button class="text-button full" data-skip-action="signout">Sign out</button>`;
+      html += `<div class="account-identity"><span class="large-avatar">${esc((profile.username || "S")[0].toUpperCase())}</span><h3>${esc(session.handle ? "@" + session.handle : profile.username)}</h3><p class="muted">Skip · ${esc(profile.username)}#${esc(profile.tag || "")}</p></div><div class="account-status"><span>Schedules</span><b id="account-sync-status">${esc($("sync-indicator").textContent)}</b></div>${!session.handle ? `<button class="settings-link" data-skip-action="setup-tag"><span class="settings-link-icon">${icon("lock")}</span><span><b>Choose your School Up tag</b><small>A unique name for finding friends</small></span>${icon("chevron")}</button>` : '<p class="hint">Sign in on any device with your Skip email and password. Your session is remembered in this browser.</p>'}<button class="settings-link" data-skip-action="import-device"><span class="settings-link-icon">${icon("copy")}</span><span><b>Copy device schedules into account</b><small>Your original device copy is kept</small></span>${icon("chevron")}</button>${SKIP_CONFIG.skipUrl && validUrl(SKIP_CONFIG.skipUrl) ? `<a class="secondary full link-button" href="${esc(SKIP_CONFIG.skipUrl)}" target="_blank" rel="noopener noreferrer">Open Skip</a>` : ""}${!user.emailVerified ? '<button class="text-button full" data-skip-action="verify-email">Verify my email</button>' : ""}<button class="text-button full" data-skip-action="signout">Sign out</button>`;
     }
-  } else if (mode === "email-link") {
-    html += `<h3 class="auth-heading">Approve this device</h3><p class="auth-description">Confirm the Skip email that received this link.</p><form id="email-link-form">${field("link-email", "Skip email", "email", 'autocomplete="email"')}<button class="primary full" type="submit">Verify and continue</button></form>`;
-  } else if (mode === "check-email") {
-    html += `<div class="auth-check">${icon("lock")}</div><h3 class="auth-heading">Check your email</h3><p class="auth-description" id="check-email-description">Open the sign-in link in this browser to approve this device.</p><button class="text-button full" data-auth-mode="login">Use Skip email & password instead</button>`;
   } else {
     html += `<p class="auth-description">Powered by Skip. One account for your chats, friends, and school week.</p><div class="auth-tabs" role="group" aria-label="Sign-in method">${[
       ["login", "Sign in"],
       ["register", "Create account"],
-      ["quick", "Quick PIN"],
     ]
       .map(
         ([id, label]) =>
           `<button data-auth-mode="${id}" class="${mode === id ? "active" : ""}" aria-pressed="${mode === id}">${label}</button>`,
       )
       .join("")}</div>`;
-    if (mode === "quick") {
-      html += `<form id="quick-login-form">${field("quick-handle", "School Up @tag", "text", 'maxlength="24" autocomplete="username" placeholder="your_tag"')}${field("quick-pin", "3-digit PIN", "password", 'inputmode="numeric" minlength="3" maxlength="3" pattern="[0-9]{3}" autocomplete="current-password"')}<p class="hint">Already connected your Skip account? Sign in here. New devices need one email check.</p><button class="primary full" type="submit">Continue</button></form>`;
-    } else if (mode === "register") {
+    if (mode === "register") {
       html += `<form id="skip-register-form">${field("register-name", "Skip display name", "text", 'minlength="2" maxlength="20" pattern="[A-Za-z0-9_]{2,20}" autocomplete="nickname"')}${field("register-email", "Email", "email", 'autocomplete="email"')}${field("register-password", "Password", "password", 'minlength="8" autocomplete="new-password"')}${field("register-confirm", "Confirm password", "password", 'minlength="8" autocomplete="new-password"')}<p class="hint">This creates a Skip account you can use in both apps.</p><button class="primary full" type="submit">Create Skip account</button></form>`;
     } else {
       html += `<form id="skip-login-form">${field("login-email", "Skip email", "email", 'autocomplete="email"')}${field("login-password", "Skip password", "password", 'autocomplete="current-password"')}<button class="primary full" type="submit">Continue with Skip</button></form><button class="text-button full" data-skip-action="reset-password">Forgot password?</button>`;
@@ -255,80 +207,25 @@ function bindForms() {
       $("register-email").value.trim(),
       $("register-password").value,
     );
-    await sendEmailVerification(credential.user);
-    S.toast("Account created. Check your email to verify it.");
-  });
-  bindForm("quick-login-form", async () => {
-    if (!SKIP_CONFIG.appCheckSiteKey)
-      throw Error(
-        "Quick sign-in needs to be activated by the app owner. Use your Skip email and password for now.",
+    try {
+      await sendEmailVerification(credential.user);
+      S.toast("Account created. Check your email to verify it.");
+    } catch {
+      S.toast(
+        "Account created. You can send a verification email from your account later.",
       );
-    const result = await call("schoolupQuickLogin", {
-      handle: $("quick-handle").value,
-      pin: $("quick-pin").value,
-      deviceSecret: deviceSecret(),
-    });
-    if (result.status === "signed-in") {
-      await signInWithCustomToken(auth, result.token);
-    } else {
-      mode = "check-email";
-      renderAccount();
-      $("check-email-description").textContent =
-        "Open the link sent to " +
-        result.maskedEmail +
-        " in this browser. After this check, your tag and PIN will work here.";
     }
   });
   bindForm("link-account-form", async () => {
-    const handle = $("link-handle").value.trim(),
-      pin = $("link-pin").value;
-    if (pin !== $("link-pin-confirm").value)
-      throw Error("Your PINs do not match.");
-    await reauthenticateWithCredential(
-      auth.currentUser,
-      EmailAuthProvider.credential(user.email, $("link-password").value),
-    );
-    const result = await call("schoolupLinkAccount", {
-      handle,
-      pin,
-      deviceSecret: deviceSecret(),
-    });
-    session = { ...session, ...result, quickLoginLocked: false };
-    S.setAccount({ name: profile.username, handle: result.handle });
+    const result = await skipData.claimHandle($("link-handle").value);
+    session = { ...session, handle: result };
+    S.setAccount({ name: profile.username, handle: result });
     mode = "account";
     renderAccount();
     S.toast("Your School Up tag is connected");
   });
-  bindForm("email-link-form", async () => {
-    finishingEmail = true;
-    try {
-      const email = $("link-email").value.trim(),
-        credential = await signInWithEmailLink(auth, email, location.href);
-      const u = new URL(location.href),
-        nested = u.searchParams.get("continueUrl"),
-        params = u.searchParams.has("su_device")
-          ? u.searchParams
-          : nested
-            ? new URL(nested).searchParams
-            : null;
-      const challenge = params?.get("su_device");
-      if (!challenge)
-        throw Error(
-          "The device check is missing. Sign in with your Skip email and password.",
-        );
-      await call("schoolupApproveDevice", {
-        challenge,
-        deviceSecret: deviceSecret(),
-      });
-      history.replaceState(null, "", location.pathname);
-      mode = "account";
-      await connectUser(credential.user);
-      S.toast("This device is approved");
-    } finally {
-      finishingEmail = false;
-    }
-  });
 }
+
 function stopListeners() {
   for (const fn of unsubs) fn();
   unsubs = [];
@@ -380,10 +277,8 @@ async function connectUser(nextUser) {
   S.setSync("Connecting…");
   if ($("skip-auth").open) renderAccount();
   try {
-    const result = await call(
-      "schoolupSession",
-      registrationName ? { displayName: registrationName } : {},
-    );
+    const result = await skipData.session(registrationName);
+    registrationName = "";
     if (run !== generation) return;
     session = result;
     profile = result.profile;
@@ -393,7 +288,7 @@ async function connectUser(nextUser) {
     if (run !== generation) return;
     listenContacts();
     renderFriends();
-    mode = session.handle ? "account" : "pin";
+    mode = session.handle ? "account" : "tag";
     if ($("skip-auth").open || !session.handle) openAccount(mode);
   } catch (err) {
     if (run !== generation) return;
@@ -758,9 +653,7 @@ function bindFriendSearch() {
           ref(db, "user_tags/" + input.replace("#", "_").replace(/\./g, ",")),
         );
         target = snap.val();
-      } else
-        target = (await call("schoolupFindHandle", { handle: input }))
-          .safeEmail;
+      } else target = await skipData.findHandle(input);
       if (!target) throw Error("No account has that tag.");
       if (target === me) throw Error("That’s your own account.");
       if (friends[target]) throw Error("You’re already friends.");
@@ -806,7 +699,7 @@ async function openChat(other) {
   $("friends-screen").classList.add("chat-open");
   renderFriendList();
   try {
-    const result = await call("schoolupEnsureDM", { other });
+    const result = await skipData.ensureDM(other);
     if (run !== generation || activePeer !== other) return;
     const p = profiles.get(other) || {};
     await update(ref(db, "dm_meta/" + me + "/" + other), {
@@ -984,7 +877,7 @@ async function sendChat(extra, recipient = activePeer) {
   const uid = user.uid,
     me = safe(user.email),
     id = dmId(me, recipient);
-  await call("schoolupEnsureDM", { other: recipient });
+  await skipData.ensureDM(recipient);
   if (user?.uid !== uid)
     throw Error("Your account changed. Open the conversation again.");
   const messageId = push(ref(db, "dms/" + id)).key;
@@ -1046,7 +939,7 @@ function openShare() {
   $("share-title").textContent =
     "Share with " + (profiles.get(recipient)?.username || "your friend");
   $("schedule-share-body").innerHTML =
-    `<label for="share-schedule-select">Choose a schedule</label><select id="share-schedule-select">${all.schedules.map((s) => `<option value="${esc(s.id)}" ${s.id === selected ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select><div id="share-preview-container"></div><p class="hint">Sends a copy of subjects and times. Your account, PIN, themes, and photos are not included.</p><button class="primary full" id="send-schedule">${icon("send")} Send schedule copy</button><p class="error" id="share-error" role="alert"></p>`;
+    `<label for="share-schedule-select">Choose a schedule</label><select id="share-schedule-select">${all.schedules.map((s) => `<option value="${esc(s.id)}" ${s.id === selected ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select><div id="share-preview-container"></div><p class="hint">Sends a copy of subjects and times. Your account, themes, and photos are not included.</p><button class="primary full" id="send-schedule">${icon("send")} Send schedule copy</button><p class="error" id="share-error" role="alert"></p>`;
   const draw = () => {
     $("share-preview-container").innerHTML = previewSchedule(
       all.schedules.find((s) => s.id === $("share-schedule-select").value),
@@ -1152,8 +1045,8 @@ async function accountAction(action) {
     S.showAppPage("schedule");
     return;
   }
-  if (action === "setup-pin") {
-    mode = "pin";
+  if (action === "setup-tag") {
+    mode = "tag";
     renderAccount();
     return;
   }
@@ -1172,24 +1065,6 @@ async function accountAction(action) {
     await auth.currentUser.getIdToken(true);
     user = auth.currentUser;
     renderAccount();
-    return;
-  }
-  if (action === "disable-pin") {
-    mode = "disable";
-    $("skip-auth-body").innerHTML =
-      authBrand() +
-      `<h3 class="auth-heading">Turn off quick sign-in</h3><p class="auth-description">Your Skip password will still work. All trusted PIN devices will be forgotten.</p><form id="disable-pin-form">${field("disable-password", "Skip password", "password", 'autocomplete="current-password"')}<button class="primary full" type="submit">Disable quick sign-in</button></form><p class="error" id="account-error" role="alert" hidden></p>`;
-    bindForm("disable-pin-form", async () => {
-      await reauthenticateWithCredential(
-        auth.currentUser,
-        EmailAuthProvider.credential(user.email, $("disable-password").value),
-      );
-      await call("schoolupDisableQuickLogin");
-      session.quickLoginEnabled = false;
-      mode = "account";
-      renderAccount();
-      S.toast("Quick sign-in disabled");
-    });
     return;
   }
   if (action === "import-device") {
@@ -1288,14 +1163,6 @@ try {
   await setPersistence(auth, browserLocalPersistence);
 } catch {}
 onAuthStateChanged(auth, async (current) => {
-  if (finishingEmail) return;
-  if (isSignInWithEmailLink(auth, location.href)) {
-    authLoading = false;
-    mode = "email-link";
-    user = null;
-    openAccount();
-    return;
-  }
   await connectUser(current);
   if (!current && !readLocal("schoolup_guest_chosen")) openAccount("login");
 });
