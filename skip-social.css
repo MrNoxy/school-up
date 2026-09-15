@@ -1,0 +1,448 @@
+.sp-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.sp-controls button,
+.sp-effect-badge {
+  font: 600 12px system-ui;
+  border: 1px solid #8883;
+  background: #8881;
+  color: inherit;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sp-controls button:hover {
+  background: #8883;
+  transform: translateY(-1px);
+}
+.sp-room-label {
+  flex-basis: 100%;
+  font: 500 13px system-ui;
+  opacity: 0.75;
+  overflow-wrap: anywhere;
+}
+.sp-room {
+  --text: #f4f4fa;
+  --muted: #bcbcca;
+  --text-primary: #e9e9f2;
+  --text-bright: #fff;
+  color: #f4f4fa !important;
+  background: var(--sp-room-bg) !important;
+  transition:
+    background 0.4s,
+    color 0.3s;
+}
+.sp-room #messages,
+.sp-room .chat-messages {
+  background: transparent !important;
+}
+.sp-room .chat-header,
+.sp-room #chat-header {
+  background: #14141d99 !important;
+  color: #f4f4fa;
+}
+.sp-room #chat-peer-name,
+.sp-room .message-text {
+  color: #f4f4fa;
+}
+.sp-room .sp-controls button {
+  color: #f4f4fa;
+}
+.sp-room .chat-message.own .message-bubble {
+  background: color-mix(in srgb, var(--sp-accent) 22%, #15151c) !important;
+}
+.chat-header:has(.sp-controls) {
+  flex-wrap: wrap;
+}
+.sp-dialog {
+  font:
+    16px/1.5 system-ui,
+    -apple-system,
+    sans-serif;
+  background: #1c1e27;
+  color: #f5f5fa;
+  border: 1px solid #ffffff24;
+  border-radius: 26px;
+  padding: 24px;
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  box-shadow: 0 28px 100px #0009;
+  overflow: auto;
+  animation: sp-enter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sp-dialog::backdrop {
+  background: #0009;
+  backdrop-filter: blur(12px);
+}
+.sp-dialog * {
+  box-sizing: border-box;
+}
+.sp-dialog-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+.sp-dialog h2 {
+  font-size: 25px;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+  margin: 0;
+}
+.sp-dialog h3 {
+  font-size: 17px;
+  margin: 8px 0;
+}
+.sp-dialog button {
+  font: 600 14px/1.3 system-ui;
+  color: #f1f1fb;
+  background: #ffffff0e;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition:
+    transform 0.18s,
+    background 0.18s;
+  min-height: 40px;
+}
+.sp-dialog button:hover {
+  background: #ffffff24;
+  transform: translateY(-1px);
+}
+.sp-dialog button:active {
+  transform: scale(0.96);
+}
+.sp-dialog button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+.sp-dialog button:focus-visible,
+.sp-dialog input:focus-visible,
+.sp-dialog select:focus-visible {
+  outline: 3px solid #b1beff;
+  outline-offset: 2px;
+}
+.sp-dialog .sp-primary {
+  color: #111524;
+  background: #b9c4ff;
+  border-color: transparent;
+}
+.sp-dialog #sp-close {
+  border-radius: 50%;
+  font-size: 24px;
+  padding: 4px 12px;
+  flex-shrink: 0;
+}
+.sp-tabs {
+  display: flex;
+  gap: 5px;
+  background: #090a102f;
+  padding: 5px;
+  margin: 20px 0;
+  border-radius: 15px;
+  overflow: auto;
+}
+.sp-tabs button {
+  flex: 1;
+  border: 0;
+  padding: 10px 8px;
+  white-space: nowrap;
+}
+.sp-tabs .active,
+.sp-dialog .selected {
+  background: #ffffff24;
+}
+.sp-lead {
+  color: #c2c4d4;
+  margin-top: 0;
+}
+.sp-dialog label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 16px 0;
+}
+.sp-dialog input:not([type="checkbox"]),
+.sp-dialog select {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 7px;
+  border: 1px solid #ffffff28;
+  border-radius: 12px;
+  background: #11131d;
+  color: #f4f4fc;
+  padding: 12px;
+  font: 16px system-ui;
+  color-scheme: dark;
+}
+.sp-row {
+  display: flex;
+  gap: 12px;
+}
+.sp-row > * {
+  flex: 1;
+  min-width: 0;
+}
+.sp-note {
+  font-size: 13px;
+  color: #b6b8c9;
+}
+.sp-dialog hr {
+  border: 0;
+  border-top: 1px solid #ffffff19;
+  margin: 24px 0;
+}
+.sp-theme-preview {
+  padding: 26px 20px;
+  border-radius: 18px;
+  font-size: 18px;
+  font-weight: 650;
+  margin-bottom: 18px;
+  transition: background 0.3s;
+}
+.sp-notice {
+  background: #ffffff08;
+  border: 1px solid #ffffff17;
+  padding: 16px;
+  border-radius: 18px;
+  margin: 16px 0;
+}
+.sp-notice p {
+  margin: 8px 0;
+}
+.sp-notice button {
+  margin: 4px 4px 4px 0;
+}
+.sp-time-chip {
+  display: inline-block;
+  background: #b7c4ff20;
+  color: #d4ddff;
+  padding: 8px 12px;
+  border-radius: 12px;
+  margin: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.sp-games-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.sp-games-list small,
+.sp-game-card small {
+  display: block;
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 5px;
+}
+.sp-board {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sp-board.four {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.sp-dialog .sp-board button {
+  padding: 0;
+  aspect-ratio: 1;
+  min-height: 0;
+  border-radius: 14px;
+  font-size: clamp(24px, 8vw, 52px);
+  line-height: 1;
+  background: #11131c;
+  opacity: 1;
+}
+.sp-board.four button {
+  border-radius: 50%;
+  font-size: 32px;
+}
+.sp-board .token-1 {
+  color: #b9c4ff;
+}
+.sp-board .token-2 {
+  color: #ffbaaa;
+}
+.sp-board .token-0 {
+  color: #363a4d;
+}
+.sp-effect-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sp-check {
+  display: flex !important;
+  gap: 10px;
+  align-items: center;
+}
+.sp-check input {
+  width: 20px;
+  height: 20px;
+}
+.sp-effect-demo {
+  padding: 30px 18px;
+  margin: 24px 0;
+  background: #b9c4ff18;
+  border-radius: 18px;
+  position: relative;
+}
+.sp-game-card {
+  display: block !important;
+  text-align: left;
+  border: 1px solid #aabbff45;
+  background: #aabbff12;
+  color: inherit;
+  padding: 18px;
+  border-radius: 18px;
+  margin: 10px 0;
+  min-width: 200px;
+  font: 600 16px system-ui;
+  cursor: pointer;
+}
+.sp-effect-badge {
+  display: inline-block;
+  color: inherit;
+  margin: 6px 0;
+}
+.sp-error {
+  color: #ffb5b8;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.sp-fx-confetti {
+  position: relative;
+  animation: sp-pop 0.7s ease;
+}
+.sp-fx-confetti:after {
+  content: "✦ · ✧ · ✦";
+  position: absolute;
+  pointer-events: none;
+  inset: -12px 0 auto;
+  text-align: center;
+  font-size: 32px;
+  color: #ffe4a3;
+  letter-spacing: 12px;
+  animation: sp-spark 1.2s ease forwards;
+}
+.sp-fx-bounce {
+  animation: sp-bounce 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sp-fx-reveal {
+  animation: sp-reveal 0.8s ease;
+}
+@keyframes sp-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sp-spark {
+  to {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.15);
+  }
+}
+@keyframes sp-pop {
+  50% {
+    transform: scale(1.025);
+  }
+}
+@keyframes sp-bounce {
+  30% {
+    transform: translateY(-9px) rotate(-1deg);
+  }
+  60% {
+    transform: translateY(3px) rotate(0.4deg);
+  }
+}
+@keyframes sp-reveal {
+  from {
+    filter: blur(10px);
+    opacity: 0.1;
+  }
+  to {
+    filter: none;
+    opacity: 1;
+  }
+}
+@media (max-width: 600px) {
+  .sp-dialog {
+    padding: 18px;
+  }
+  .sp-dialog h2 {
+    font-size: 22px;
+  }
+  .sp-controls {
+    width: 100%;
+    margin: 4px 0;
+  }
+  .sp-controls button {
+    flex: 1;
+    padding: 8px 5px;
+    font-size: 12px;
+    min-height: 44px;
+  }
+  .sp-board.four button {
+    font-size: 25px;
+  }
+  .sp-games-list {
+    grid-template-columns: 1fr;
+  }
+  .sp-tabs button {
+    font-size: 12px;
+  }
+  .sp-game-card {
+    min-width: 0;
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-dialog,
+  .sp-fx-confetti,
+  .sp-fx-reveal,
+  .sp-fx-bounce,
+  .sp-fx-confetti:after {
+    animation: none !important;
+  }
+  .sp-dialog *,
+  .sp-room,
+  .sp-controls * {
+    transition: none !important;
+  }
+}
+
+#chat-header:has(.sp-controls) {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 64px;
+  gap: 10px;
+  padding-block: 12px;
+  flex-shrink: 0;
+}
+#chat-header .sp-controls {
+  margin-left: auto;
+}
+.sp-room #msg-input {
+  color: #f5f5ff;
+}
+@media (max-width: 700px) {
+  #chat-header .sp-controls {
+    width: 100%;
+    margin-left: 0;
+  }
+}

@@ -14,6 +14,7 @@ import {
   getDatabase,
   ref,
   get,
+  set,
   onValue,
   update,
   remove,
@@ -24,8 +25,12 @@ import {
   runTransaction,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-import { SKIP_CONFIG } from "./skip-config.js?v=dmfix3";
-import { createSkipData } from "./skip-data.js?v=dmfix3";
+import { SKIP_CONFIG } from "./skip-config.js?v=social4";
+import { createSkipData } from "./skip-data.js?v=social4";
+import {
+  createSkipSocial,
+  socialMessageMarkup,
+} from "./skip-social.js?v=social4";
 const S = window.SchoolUp,
   $ = (id) => document.getElementById(id),
   esc = S.esc,
@@ -37,6 +42,26 @@ const skipData = createSkipData({
   auth,
   db,
   sdk: { ref, get, update, runTransaction },
+});
+const social = createSkipSocial({
+  auth,
+  db,
+  sdk: {
+    ref,
+    get,
+    set,
+    remove,
+    onValue,
+    runTransaction,
+    push,
+    query,
+    orderByChild,
+    limitToLast,
+  },
+  ensureDM: (peer) => skipData.ensureDM(peer),
+  getWorkspace: async () => S.getState(),
+  send: (extra, peer) => sendChat(extra, peer),
+  toast: (message) => S.toast(message),
 });
 const safe = (email) => email.replace(/\./g, ","),
   dmId = (a, b) => [a, b].sort().join("_");
@@ -59,6 +84,8 @@ let unsubs = [],
   messageUnsub = null,
   messages = new Map(),
   messageLimit = 100;
+let chatSequence = 0,
+  messageSequence = 0;
 let syncReady = false,
   revision = 0,
   dirty = false,
@@ -227,6 +254,9 @@ function bindForms() {
 }
 
 function stopListeners() {
+  ++chatSequence;
+  ++messageSequence;
+  social.detach();
   for (const fn of unsubs) fn();
   unsubs = [];
   for (const fn of contactUnsubs.values()) fn();
@@ -685,8 +715,11 @@ async function acceptRequest(other) {
 }
 async function openChat(other) {
   if (!ready) return;
+  social.detach();
   const me = safe(user.email),
-    run = generation;
+    run = generation,
+    opening = ++chatSequence;
+  ++messageSequence;
   messageUnsub?.();
   messageUnsub = null;
   messages.clear();
@@ -700,15 +733,24 @@ async function openChat(other) {
   renderFriendList();
   try {
     const result = await skipData.ensureDM(other);
-    if (run !== generation || activePeer !== other) return;
+    if (run !== generation || activePeer !== other || opening !== chatSequence)
+      return;
     const p = profiles.get(other) || {};
     await update(ref(db, "dm_meta/" + me + "/" + other), {
       dmId: result.dmId,
       hidden: false,
     });
-    if (run !== generation || activePeer !== other) return;
+    if (run !== generation || activePeer !== other || opening !== chatSequence)
+      return;
     panel.innerHTML = `<div class="chat-header"><button class="icon-button chat-back" data-skip-action="chat-back" aria-label="Back to friends">${icon("chevron")}</button>${avatarHtml(p)}<div><b id="chat-peer-name">${esc(p.username || "Skip friend")}</b><small>Skip conversation</small></div><button class="icon-button" data-skip-action="share" aria-label="Share a schedule" title="Share a schedule">${icon("share")}</button></div><div class="chat-messages" id="chat-messages" role="log" aria-label="Messages" aria-live="polite"><p class="muted">Loading messages…</p></div><form class="chat-composer" id="chat-composer"><textarea id="chat-text" placeholder="Message your friend…" rows="1" maxlength="4000" aria-label="Message"></textarea><button type="submit" class="primary" aria-label="Send message">${icon("send")}</button></form><p class="chat-error" id="chat-error" role="status"></p>`;
     listenMessages(result.dmId);
+    social.attach({
+      id: result.dmId,
+      peer: other,
+      surface: panel,
+      header: panel.querySelector(".chat-header"),
+      messages: $("chat-messages"),
+    });
     $("chat-composer").onsubmit = async (e) => {
       e.preventDefault();
       const text = $("chat-text").value.trim();
@@ -733,12 +775,22 @@ async function openChat(other) {
       }
     };
   } catch (err) {
-    if (run !== generation || activePeer !== other) return;
+    if (run !== generation || activePeer !== other || opening !== chatSequence)
+      return;
     panel.innerHTML = `<div class="chat-empty"><p>${esc(errorMessage(err))}</p><button class="secondary" data-open-chat="${esc(other)}">Retry</button></div>`;
   }
 }
 function listenMessages(id) {
   messageUnsub?.();
+  const peer = activePeer,
+    run = generation,
+    owner = user?.uid,
+    listening = ++messageSequence;
+  const isCurrent = () =>
+    listening === messageSequence &&
+    run === generation &&
+    user?.uid === owner &&
+    activePeer === peer;
   messageUnsub = onValue(
     query(
       ref(db, "dms/" + id),
@@ -746,8 +798,11 @@ function listenMessages(id) {
       limitToLast(messageLimit),
     ),
     (snap) => {
+      if (!isCurrent()) return;
       messages = new Map();
-      snap.forEach((child) => messages.set(child.key, child.val()));
+      snap.forEach((child) => {
+        messages.set(child.key, child.val());
+      });
       renderMessages();
       if (S.getState && document.visibilityState === "visible")
         update(ref(db, "users/" + safe(user.email) + "/lastRead"), {
@@ -755,7 +810,8 @@ function listenMessages(id) {
         }).catch(() => {});
     },
     (err) => {
-      $("chat-error").textContent = errorMessage(err);
+      if (isCurrent() && $("chat-error"))
+        $("chat-error").textContent = errorMessage(err);
     },
   );
 }
@@ -840,6 +896,7 @@ function renderMessages() {
       else
         content += `<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">${esc(m.fileName || "Open attachment")}</a>`;
     }
+    content += socialMessageMarkup(m);
     html += `<article class="chat-message ${own ? "own" : ""}" data-message-key="${esc(id)}"><div class="message-bubble">${content || '<p class="muted">Open Skip to view this message.</p>'}</div><div class="message-meta"><span>${esc(own ? "You" : m.username || "Friend")} · ${esc(date)}${m.edited ? " · edited" : ""}</span>${own ? `<button data-delete-message="${esc(id)}" aria-label="Delete message">${icon("trash")}</button>` : ""}</div></article>`;
   }
   // Preserve unchanged rows and media when another message arrives.
@@ -887,6 +944,7 @@ async function sendChat(extra, recipient = activePeer) {
     avatar: profile.avatar || "",
     timestamp: serverTimestamp(),
     roleId: "member",
+    ...social.effectPayload(),
     ...extra,
   };
   await update(ref(db), {
@@ -902,6 +960,7 @@ async function sendChat(extra, recipient = activePeer) {
       lastActivity: serverTimestamp(),
     },
   });
+  if (activePeer === recipient) social.clearEffect();
 }
 function previewSchedule(schedule) {
   const ds = [
