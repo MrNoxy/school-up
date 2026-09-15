@@ -1,3 +1,10 @@
+import {
+  THEME_LIBRARY,
+  normalizeChatTheme,
+  themeTokens,
+  paintWallpaper,
+  readThemeImage,
+} from "./skip-themes.js?v=studio5";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {
   getAuth,
@@ -25,12 +32,12 @@ import {
   runTransaction,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-import { SKIP_CONFIG } from "./skip-config.js?v=social4";
-import { createSkipData } from "./skip-data.js?v=social4";
+import { SKIP_CONFIG } from "./skip-config.js?v=studio5";
+import { createSkipData } from "./skip-data.js?v=studio5";
 import {
   createSkipSocial,
   socialMessageMarkup,
-} from "./skip-social.js?v=social4";
+} from "./skip-social.js?v=studio5";
 const S = window.SchoolUp,
   $ = (id) => document.getElementById(id),
   esc = S.esc,
@@ -44,6 +51,14 @@ const skipData = createSkipData({
   sdk: { ref, get, update, runTransaction },
 });
 const social = createSkipSocial({
+  appName: "schoolup",
+  themeKit: {
+    THEME_LIBRARY,
+    normalizeChatTheme,
+    themeTokens,
+    paintWallpaper,
+    readThemeImage,
+  },
   auth,
   db,
   sdk: {
@@ -59,7 +74,6 @@ const social = createSkipSocial({
     limitToLast,
   },
   ensureDM: (peer) => skipData.ensureDM(peer),
-  getWorkspace: async () => S.getState(),
   send: (extra, peer) => sendChat(extra, peer),
   toast: (message) => S.toast(message),
 });
@@ -285,6 +299,7 @@ async function connectUser(nextUser) {
   const run = ++generation;
   stopListeners();
   user = nextUser;
+  social.setUser(user);
   profile = null;
   session = null;
   ready = false;
@@ -669,7 +684,8 @@ function renderFriendList() {
 function bindFriendSearch() {
   $("find-friend-form").onsubmit = async (e) => {
     e.preventDefault();
-    const button = e.target.querySelector("button");
+    const button = e.target.querySelector("button[type=submit]");
+    if (button.disabled) return;
     button.disabled = true;
     $("friend-search-error").textContent = "";
     try {
@@ -713,7 +729,9 @@ async function acceptRequest(other) {
   await remove(ref(db, "friend_requests/" + me + "/" + other));
   S.toast("Friend request accepted");
 }
+let chatAttachment = null;
 async function openChat(other) {
+  chatAttachment = null;
   if (!ready) return;
   social.detach();
   const me = safe(user.email),
@@ -742,7 +760,7 @@ async function openChat(other) {
     });
     if (run !== generation || activePeer !== other || opening !== chatSequence)
       return;
-    panel.innerHTML = `<div class="chat-header"><button class="icon-button chat-back" data-skip-action="chat-back" aria-label="Back to friends">${icon("chevron")}</button>${avatarHtml(p)}<div><b id="chat-peer-name">${esc(p.username || "Skip friend")}</b><small>Skip conversation</small></div><button class="icon-button" data-skip-action="share" aria-label="Share a schedule" title="Share a schedule">${icon("share")}</button></div><div class="chat-messages" id="chat-messages" role="log" aria-label="Messages" aria-live="polite"><p class="muted">Loading messages…</p></div><form class="chat-composer" id="chat-composer"><textarea id="chat-text" placeholder="Message your friend…" rows="1" maxlength="4000" aria-label="Message"></textarea><button type="submit" class="primary" aria-label="Send message">${icon("send")}</button></form><p class="chat-error" id="chat-error" role="status"></p>`;
+    panel.innerHTML = `<div class="chat-header"><button class="icon-button chat-back" data-skip-action="chat-back" aria-label="Back to friends">${icon("chevron")}</button>${avatarHtml(p)}<div><b id="chat-peer-name">${esc(p.username || "Skip friend")}</b><small>Skip conversation</small></div></div><div class="chat-messages" id="chat-messages" role="log" aria-label="Messages" aria-live="polite"><p class="muted">Loading messages…</p></div><div id="chat-attachment" class="sp-attachment-preview" hidden></div><form class="chat-composer" id="chat-composer"><textarea id="chat-text" placeholder="Message your friend…" rows="1" maxlength="4000" aria-label="Message"></textarea><button type="submit" class="primary" aria-label="Send message">${icon("send")}</button></form><p class="chat-error" id="chat-error" role="status"></p>`;
     listenMessages(result.dmId);
     social.attach({
       id: result.dmId,
@@ -750,16 +768,31 @@ async function openChat(other) {
       surface: panel,
       header: panel.querySelector(".chat-header"),
       messages: $("chat-messages"),
+      title: $("chat-peer-name"),
+      composer: $("chat-composer"),
+      input: $("chat-text"),
+      sendButton: $("chat-composer").querySelector("button[type=submit]"),
+      pickFile: pickChatFile,
+      shareSchedule: openShare,
+      getMessage: (id) => messages.get(id),
     });
     $("chat-composer").onsubmit = async (e) => {
       e.preventDefault();
       const text = $("chat-text").value.trim();
-      if (!text) return;
+      if (!text && !chatAttachment) return;
+      const attachment = chatAttachment,
+        currentOpening = chatSequence;
       const input = $("chat-text"),
-        button = e.target.querySelector("button");
+        button = e.target.querySelector("button[type=submit]");
+      if (button.disabled) return;
       button.disabled = true;
       try {
-        await sendChat({ text }, other);
+        await sendChat({ text, ...(attachment?.payload || {}) }, other);
+        if (currentOpening === chatSequence && attachment === chatAttachment) {
+          chatAttachment = null;
+          $("chat-attachment").hidden = true;
+          $("chat-attachment").replaceChildren();
+        }
         if (activePeer === other && input.value.trim() === text)
           input.value = "";
       } catch (err) {
@@ -779,6 +812,63 @@ async function openChat(other) {
       return;
     panel.innerHTML = `<div class="chat-empty"><p>${esc(errorMessage(err))}</p><button class="secondary" data-open-chat="${esc(other)}">Retry</button></div>`;
   }
+}
+function pickChatFile(mode) {
+  const input = document.createElement("input"),
+    opening = chatSequence,
+    uid = user?.uid;
+  input.type = "file";
+  input.accept =
+    mode === "file" ? "*/*" : "image/png,image/jpeg,image/webp,image/gif";
+  if (mode === "camera") input.setAttribute("capture", "environment");
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      let payload,
+        preview = "";
+      if (file.type.startsWith("image/")) {
+        preview = await readThemeImage(file);
+        payload = { imageUrl: preview };
+      } else {
+        if (file.size > 600 * 1024)
+          throw Error(
+            "School Up files can be up to 600 KB. Use Skip for larger files.",
+          );
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(Error("This file could not be read."));
+          reader.readAsDataURL(file);
+        });
+        payload = {
+          skipFile: {
+            name: file.name.slice(0, 160),
+            data: "data:application/octet-stream;base64," + data.split(",")[1],
+          },
+        };
+      }
+      if (opening !== chatSequence || user?.uid !== uid) return;
+      chatAttachment = { payload };
+      const area = $("chat-attachment");
+      area.hidden = false;
+      area.innerHTML =
+        (preview
+          ? '<img alt="Attachment preview" src="' + esc(preview) + '">'
+          : "") +
+        "<span>" +
+        esc(file.name) +
+        '</span><button type="button" aria-label="Remove attachment">×</button>';
+      area.querySelector("button").onclick = () => {
+        chatAttachment = null;
+        area.hidden = true;
+        area.replaceChildren();
+      };
+    } catch (e) {
+      S.toast(e.message);
+    }
+  };
+  input.click();
 }
 function listenMessages(id) {
   messageUnsub?.();
@@ -858,7 +948,7 @@ function renderMessages() {
           })
         : "";
     let content =
-      typeof m.text === "string"
+      typeof m.text === "string" && !m.skipGame
         ? `<p class="message-text">${esc(m.text)}</p>`
         : "";
     if (share) {
@@ -912,9 +1002,14 @@ function renderMessages() {
   for (const candidate of [...staging.children]) {
     const previous = existing.get(candidate.dataset.messageKey);
     const node =
-      previous && previous.outerHTML === candidate.outerHTML
+      previous &&
+      previous._messageSource ===
+        JSON.stringify(messages.get(candidate.dataset.messageKey))
         ? previous
         : candidate;
+    node._messageSource = JSON.stringify(
+      messages.get(candidate.dataset.messageKey),
+    );
     if (node === cursor) cursor = cursor.nextElementSibling;
     else container.insertBefore(node, cursor);
   }
@@ -944,7 +1039,7 @@ async function sendChat(extra, recipient = activePeer) {
     avatar: profile.avatar || "",
     timestamp: serverTimestamp(),
     roleId: "member",
-    ...social.effectPayload(),
+    ...(extra.skipGame ? {} : social.effectPayload()),
     ...extra,
   };
   await update(ref(db), {
@@ -960,7 +1055,7 @@ async function sendChat(extra, recipient = activePeer) {
       lastActivity: serverTimestamp(),
     },
   });
-  if (activePeer === recipient) social.clearEffect();
+  if (activePeer === recipient && !extra.skipGame) social.clearEffect();
 }
 function previewSchedule(schedule) {
   const ds = [
@@ -1203,6 +1298,7 @@ window.addEventListener("schoolup:changed", (e) => {
   if (e.detail.uid === user?.uid) queueSave();
 });
 window.addEventListener("schoolup:page", (e) => {
+  social.setVisible(e.detail === "friends");
   if (e.detail === "friends") renderFriends();
 });
 window.addEventListener("online", () => {

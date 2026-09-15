@@ -1,448 +1,968 @@
-.sp-controls {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-.sp-controls button,
-.sp-effect-badge {
-  font: 600 12px system-ui;
-  border: 1px solid #8883;
-  background: #8881;
-  color: inherit;
-  border-radius: 10px;
-  padding: 8px 10px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.sp-controls button:hover {
-  background: #8883;
-  transform: translateY(-1px);
-}
-.sp-room-label {
-  flex-basis: 100%;
-  font: 500 13px system-ui;
-  opacity: 0.75;
-  overflow-wrap: anywhere;
-}
-.sp-room {
-  --text: #f4f4fa;
-  --muted: #bcbcca;
-  --text-primary: #e9e9f2;
-  --text-bright: #fff;
-  color: #f4f4fa !important;
-  background: var(--sp-room-bg) !important;
-  transition:
-    background 0.4s,
-    color 0.3s;
-}
-.sp-room #messages,
-.sp-room .chat-messages {
-  background: transparent !important;
-}
-.sp-room .chat-header,
-.sp-room #chat-header {
-  background: #14141d99 !important;
-  color: #f4f4fa;
-}
-.sp-room #chat-peer-name,
-.sp-room .message-text {
-  color: #f4f4fa;
-}
-.sp-room .sp-controls button {
-  color: #f4f4fa;
-}
-.sp-room .chat-message.own .message-bubble {
-  background: color-mix(in srgb, var(--sp-accent) 22%, #15151c) !important;
-}
-.chat-header:has(.sp-controls) {
-  flex-wrap: wrap;
-}
-.sp-dialog {
+/* Composer-first chat tools. No controls are added to the chat header. */
+.sp-dialog,
+.sp-popover {
+  --sp-bg: var(--sk-surface, #20212a);
+  --sp-text: var(--sk-text, #f6f5fb);
+  --sp-muted: var(--sk-muted, #b9b8c7);
+  --sp-accent: var(--sk-accent, #b9c4ff);
+  --sp-ink: var(--sk-ink, #171927);
+  box-sizing: border-box;
+  color: var(--sp-text);
+  background: var(--sp-bg);
   font:
-    16px/1.5 system-ui,
+    16px/1.45 system-ui,
     -apple-system,
     sans-serif;
-  background: #1c1e27;
-  color: #f5f5fa;
-  border: 1px solid #ffffff24;
-  border-radius: 26px;
-  padding: 24px;
-  width: min(560px, calc(100vw - 24px));
-  max-height: calc(100dvh - 32px);
+  border: 1px solid color-mix(in srgb, var(--sp-text) 13%, transparent);
+  box-shadow: 0 18px 70px #0006;
+}
+.sp-dialog *,
+.sp-popover * {
   box-sizing: border-box;
-  box-shadow: 0 28px 100px #0009;
+}
+.sp-dialog {
+  padding: 24px;
+  border-radius: 28px;
+  width: min(580px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
   overflow: auto;
-  animation: sp-enter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .sp-dialog::backdrop {
-  background: #0009;
-  backdrop-filter: blur(12px);
+  background: #0007;
+  backdrop-filter: blur(10px);
 }
-.sp-dialog * {
-  box-sizing: border-box;
+.sp-dialog[open] {
+  animation: sp-sheet-in 0.22s ease-out;
 }
-.sp-dialog-head {
+.sp-dialog > header {
   display: flex;
-  gap: 16px;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.sp-dialog header small {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  color: var(--sp-muted);
 }
 .sp-dialog h2 {
-  font-size: 25px;
-  line-height: 1.2;
-  letter-spacing: -0.7px;
-  margin: 0;
+  font-size: 27px;
+  letter-spacing: -0.8px;
+  margin: 4px 0;
 }
 .sp-dialog h3 {
   font-size: 17px;
-  margin: 8px 0;
+  margin: 22px 0 12px;
 }
-.sp-dialog button {
+.sp-dialog button,
+.sp-popover button,
+.sp-invite-actions button {
   font: 600 14px/1.3 system-ui;
-  color: #f1f1fb;
-  background: #ffffff0e;
-  border: 1px solid #ffffff20;
-  border-radius: 12px;
-  padding: 11px 14px;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 13px;
+  min-height: 42px;
+  padding: 10px 14px;
   cursor: pointer;
   transition:
-    transform 0.18s,
-    background 0.18s;
-  min-height: 40px;
+    background 0.16s,
+    transform 0.16s;
 }
-.sp-dialog button:hover {
-  background: #ffffff24;
-  transform: translateY(-1px);
+.sp-dialog button:hover,
+.sp-popover button:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }
-.sp-dialog button:active {
-  transform: scale(0.96);
+.sp-dialog button:active,
+.sp-popover button:active {
+  transform: scale(0.97);
 }
-.sp-dialog button:disabled {
+.sp-dialog button:disabled,
+.sp-popover button:disabled {
   opacity: 0.45;
   cursor: default;
-  transform: none;
 }
-.sp-dialog button:focus-visible,
-.sp-dialog input:focus-visible,
-.sp-dialog select:focus-visible {
-  outline: 3px solid #b1beff;
-  outline-offset: 2px;
-}
-.sp-dialog .sp-primary {
-  color: #111524;
-  background: #b9c4ff;
+.sp-dialog .sp-primary,
+.sp-popover .sp-primary,
+.sp-invite-actions .sp-primary {
+  background: var(--sk-accent, #b9c4ff);
+  color: var(--sk-ink, #171927);
   border-color: transparent;
 }
-.sp-dialog #sp-close {
-  border-radius: 50%;
+.sp-dialog :focus-visible,
+.sp-popover :focus-visible,
+.sp-game-invite :focus-visible {
+  outline: 3px solid var(--sk-accent, #b9c4ff);
+  outline-offset: 2px;
+}
+.sp-dialog #sp-close,
+.sp-effects-heading [data-close] {
   font-size: 24px;
-  padding: 4px 12px;
+  border-radius: 50%;
+  width: 40px;
+  padding: 0;
   flex-shrink: 0;
 }
-.sp-tabs {
-  display: flex;
-  gap: 5px;
-  background: #090a102f;
-  padding: 5px;
-  margin: 20px 0;
-  border-radius: 15px;
-  overflow: auto;
-}
-.sp-tabs button {
-  flex: 1;
-  border: 0;
-  padding: 10px 8px;
-  white-space: nowrap;
-}
-.sp-tabs .active,
-.sp-dialog .selected {
-  background: #ffffff24;
-}
 .sp-lead {
-  color: #c2c4d4;
-  margin-top: 0;
+  font-size: 14px;
+  color: var(--sp-muted);
+  margin: 0 0 18px;
+}
+.sp-note {
+  font-size: 12px;
+  color: var(--sp-muted);
+}
+.sp-dialog hr {
+  border: 0;
+  border-top: 1px solid #8883;
+  margin: 24px 0;
 }
 .sp-dialog label {
   display: block;
   font-size: 14px;
-  font-weight: 600;
   margin: 16px 0;
 }
-.sp-dialog input:not([type="checkbox"]),
+.sp-dialog label small {
+  font-size: 12px;
+  color: var(--sp-muted);
+  display: block;
+}
+.sp-dialog input:not([type="range"]),
 .sp-dialog select {
   display: block;
   min-width: 0;
   width: 100%;
-  max-width: 100%;
-  margin-top: 7px;
-  border: 1px solid #ffffff28;
-  border-radius: 12px;
-  background: #11131d;
-  color: #f4f4fc;
   padding: 12px;
-  font: 16px system-ui;
-  color-scheme: dark;
+  border: 1px solid #8884;
+  border-radius: 12px;
+  margin-top: 7px;
+  background: color-mix(in srgb, var(--sp-bg) 90%, #000);
+  color: var(--sp-text);
+  font: 16px system-ui !important;
+}
+.sp-dialog input[type="color"] {
+  padding: 4px;
+  height: 44px;
+}
+.sp-dialog input[type="range"] {
+  display: block;
+  width: 100%;
+  accent-color: var(--sp-accent);
+  margin-top: 12px;
 }
 .sp-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .sp-row > * {
   flex: 1;
   min-width: 0;
 }
-.sp-note {
-  font-size: 13px;
-  color: #b6b8c9;
+#sp-error {
+  font-size: 14px;
+  color: #ec8191;
+  overflow-wrap: anywhere;
 }
-.sp-dialog hr {
-  border: 0;
-  border-top: 1px solid #ffffff19;
-  margin: 24px 0;
+.sp-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 10px;
+  border-radius: 23px;
+  z-index: 100000;
+  overflow: auto;
+  transform: translateY(-100%);
+  transform-origin: bottom left;
+  animation: sp-pop-in 0.2s ease-out;
 }
-.sp-theme-preview {
-  padding: 26px 20px;
-  border-radius: 18px;
-  font-size: 18px;
-  font-weight: 650;
-  margin-bottom: 18px;
-  transition: background 0.3s;
+.sp-popover::backdrop {
+  background: transparent;
 }
-.sp-notice {
-  background: #ffffff08;
-  border: 1px solid #ffffff17;
-  padding: 16px;
-  border-radius: 18px;
-  margin: 16px 0;
-}
-.sp-notice p {
-  margin: 8px 0;
-}
-.sp-notice button {
-  margin: 4px 4px 4px 0;
-}
-.sp-time-chip {
-  display: inline-block;
-  background: #b7c4ff20;
-  color: #d4ddff;
-  padding: 8px 12px;
-  border-radius: 12px;
-  margin: 4px;
-  font-variant-numeric: tabular-nums;
-}
-.sp-games-list {
+.sp-menu {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+.sp-menu button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 9px;
+  text-align: left;
+  font-size: 15px;
+  min-height: 54px;
+}
+.sp-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #7c95db26;
+  color: #a8c0ff;
+}
+.sp-menu-icon.camera {
+  background: #e6a55722;
+  color: #ecbd86;
+}
+.sp-menu-icon.games {
+  background: #a978db28;
+  color: #c5a1ef;
+}
+.sp-menu-icon.theme {
+  background: #e29bcc26;
+  color: #f0acd3;
+}
+.sp-menu-icon.file {
+  background: #77bba726;
+  color: #9ddfc8;
+}
+.sp-composer-plus {
+  width: 42px !important;
+  height: 42px !important;
+  flex: 0 0 42px !important;
+  padding: 8px !important;
+  border-radius: 50%;
+  color: var(--accent);
+  background: transparent;
+  border: 0;
+}
+.chat-composer {
+  gap: 8px !important;
+  align-items: center !important;
+}
+.chat-composer textarea {
+  min-width: 0 !important;
+  flex: 1;
+}
+.chat-composer button[type="submit"],
+#send-btn {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.chat-composer button[data-effect-ready],
+#send-btn[data-effect-ready] {
+  box-shadow: 0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--sk-accent, var(--accent-primary, #9faaff)) 40%,
+      transparent
+    );
+}
+.sp-attachment-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.sp-attachment-preview img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.sp-attachment-preview button {
+  margin-left: auto;
+}
+.sp-effect-sheet {
+  padding: 16px;
+  border-radius: 25px;
+}
+.sp-effects-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+}
+.sp-effect-preview {
+  min-height: 90px;
+  max-height: 160px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 10px;
+  margin: 8px 0 12px;
+  background: color-mix(in srgb, var(--sp-text) 5%, transparent);
+  border-radius: 18px;
+}
+.sp-preview-bubble {
+  position: relative;
+  max-width: 90%;
+  overflow-wrap: anywhere;
+  background: var(--sp-accent);
+  color: var(--sp-ink);
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 16px;
+}
+.sp-effect-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.sp-effect-options button {
+  border: 0;
+  min-width: 0;
+  font-size: 11px;
+  padding: 9px 3px;
+}
+.sp-effect-options button span {
+  display: block;
+  font-size: 23px;
+  margin-bottom: 4px;
+  line-height: 26px;
+}
+.sp-effect-options button[aria-pressed="true"] {
+  background: var(--sp-accent);
+  color: var(--sp-ink);
+}
+.sp-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 12px 4px;
+}
+.sp-toggle input,
+.sp-playback input {
+  accent-color: var(--sp-accent);
+  width: 19px;
+  height: 19px;
+}
+.sp-effects-actions {
+  display: flex;
   gap: 8px;
 }
-.sp-games-list small,
-.sp-game-card small {
+.sp-effects-actions button {
+  flex: 1;
+  font-size: 13px;
+  padding: 10px 7px;
+}
+.sp-playback {
+  font-size: 12px;
+  color: var(--sp-muted);
+  margin-top: 14px;
+}
+.sp-playback label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sp-effect-mark {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.58;
+  margin-left: 6px;
+  vertical-align: super;
+  cursor: pointer;
+}
+.chat-message:has(.sp-effect-mark),
+.message:has(.sp-effect-mark) {
+  position: relative;
+  cursor: pointer;
+  outline-offset: 3px;
+}
+.sp-file-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid #8884;
+  border-radius: 14px;
+  padding: 12px;
+  text-align: left;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.sp-file-card small {
   display: block;
   font-size: 12px;
   opacity: 0.7;
-  margin-top: 5px;
+}
+.sp-game-invite {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 390px;
+  padding: 18px;
+  margin: 8px 0;
+  border-radius: 21px;
+  border: 1px solid
+    color-mix(in srgb, var(--sk-accent, #a6b7ff) 30%, transparent);
+  background: color-mix(in srgb, var(--sk-surface, #232432) 94%, transparent);
+  color: var(--sk-text, #f6f5fc);
+  font: 14px/1.4 system-ui;
+}
+.sp-game-invite > div:last-child {
+  min-width: 0;
+  flex: 1;
+}
+.sp-game-invite small {
+  font-size: 9px;
+  letter-spacing: 1.1px;
+  opacity: 0.7;
+}
+.sp-game-invite strong {
+  display: block;
+  font-size: 18px;
+  margin-top: 4px;
+  letter-spacing: -0.4px;
+}
+.sp-game-invite p {
+  font-size: 12px;
+  opacity: 0.75;
+  margin: 6px 0 12px;
+}
+.sp-game-emblem {
+  width: 58px;
+  height: 65px;
+  flex-shrink: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  font-size: 25px;
+  line-height: 1.1;
+  color: var(--sk-accent, #b9c4ff);
+  background: #8881;
+  border-radius: 15px;
+  letter-spacing: 3px;
+}
+.sp-invite-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sp-invite-actions button {
+  min-height: 34px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.sp-game-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sp-game-picker > button {
+  text-align: left;
+  padding: 12px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.sp-game-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 130px;
+  white-space: pre-line;
+  text-align: center;
+  background: linear-gradient(145deg, #38316b, #293452);
+  color: #d5d1ff;
+  border-radius: 14px;
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: 9px;
+  margin-bottom: 14px;
+}
+.sp-game-art.four {
+  background: linear-gradient(140deg, #2a514f, #294654);
+  color: #d4f5de;
+  font-size: 32px;
+  letter-spacing: 5px;
+}
+.sp-game-picker strong {
+  display: block;
+  font-size: 17px;
+  margin-bottom: 6px;
+}
+.sp-game-picker small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--sp-muted);
+}
+.sp-game-cta {
+  display: block;
+  font-size: 12px;
+  color: var(--sp-accent);
+  margin-top: 14px;
+}
+.sp-recent-games {
+  display: grid;
+  gap: 7px;
+}
+.sp-recent-games button {
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
+}
+.sp-recent-games small {
+  color: var(--sp-muted);
+  font-weight: 400;
+}
+.sp-game-panel {
+  padding: 18px;
+  border: 1px solid #8883;
+  border-radius: 20px;
+  margin-top: 22px;
+}
+.sp-game-panel > h3 {
+  margin-top: 0;
 }
 .sp-board {
   display: grid;
-  gap: 6px;
-  margin-top: 16px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 18px 0;
 }
 .sp-board.four {
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  gap: 5px;
 }
 .sp-dialog .sp-board button {
-  padding: 0;
   aspect-ratio: 1;
+  padding: 0;
   min-height: 0;
+  font-size: 40px;
   border-radius: 14px;
-  font-size: clamp(24px, 8vw, 52px);
-  line-height: 1;
-  background: #11131c;
+  background: #8881;
   opacity: 1;
 }
-.sp-board.four button {
+.sp-dialog .sp-board.four button {
   border-radius: 50%;
-  font-size: 32px;
+  font-size: 30px;
 }
 .sp-board .token-1 {
-  color: #b9c4ff;
+  color: var(--sp-accent);
 }
 .sp-board .token-2 {
-  color: #ffbaaa;
+  color: #dd859e;
 }
 .sp-board .token-0 {
-  color: #363a4d;
+  color: #8884;
 }
-.sp-effect-options {
+.sp-theme-tabs {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 5px;
+  background: #8881;
+  padding: 5px;
+  border-radius: 15px;
+  margin-bottom: 18px;
 }
-.sp-check {
-  display: flex !important;
+.sp-theme-tabs button {
+  flex: 1;
+  padding: 10px;
+  border: 0;
+  background: transparent;
+  white-space: nowrap;
+}
+.sp-theme-tabs .active {
+  background: #8882;
+}
+.sp-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  align-items: center;
+  max-height: 270px;
+  overflow: auto;
+  padding: 2px;
 }
-.sp-check input {
-  width: 20px;
-  height: 20px;
-}
-.sp-effect-demo {
-  padding: 30px 18px;
-  margin: 24px 0;
-  background: #b9c4ff18;
-  border-radius: 18px;
-  position: relative;
-}
-.sp-game-card {
-  display: block !important;
+.sp-dialog .sp-theme-tile {
   text-align: left;
-  border: 1px solid #aabbff45;
-  background: #aabbff12;
-  color: inherit;
+  border: 0;
+  background: var(--tile-bg);
+  color: var(--tile-accent);
+  padding: 12px;
+  height: 91px;
+  border-radius: 16px;
+}
+.sp-theme-tile > span {
+  display: block;
+  font-size: 25px;
+  font-weight: 700;
+  margin-bottom: 9px;
+}
+.sp-theme-tile > b {
+  display: block;
+  font-size: 11px;
+}
+.sp-theme-stage {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #8883;
+  border-radius: 20px;
+  height: 180px;
+  margin: 18px 0;
+  color: var(--sk-text);
+  background: var(--sk-base);
+}
+#sp-theme-wall {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.sp-theme-mock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  background: color-mix(in srgb, var(--sk-base) 12%, transparent);
+}
+.sp-theme-mock aside {
+  background: color-mix(in srgb, var(--sk-surface) 85%, transparent);
   padding: 18px;
-  border-radius: 18px;
-  margin: 10px 0;
-  min-width: 200px;
-  font: 600 16px system-ui;
+  width: 62px;
+  line-height: 2.1;
+  font-size: 13px;
+}
+.sp-theme-mock section {
+  padding: 20px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+.sp-theme-mock section p {
+  background: var(--sk-surface);
+  padding: 9px 12px;
+  border-radius: 12px;
+  margin: 12px 0;
+  max-width: 85%;
+}
+.sp-theme-mock section .own {
+  background: var(--sk-accent);
+  color: var(--sk-ink);
+  margin-left: auto;
+}
+.sp-upload-tile {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  border: 1px dashed #8886;
+  border-radius: 17px;
+  padding: 20px;
   cursor: pointer;
 }
-.sp-effect-badge {
-  display: inline-block;
-  color: inherit;
-  margin: 6px 0;
+.sp-upload-tile input {
+  font-size: 12px !important;
+  padding: 7px !important;
 }
-.sp-error {
-  color: #ffb5b8;
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-.sp-fx-confetti {
-  position: relative;
-  animation: sp-pop 0.7s ease;
-}
-.sp-fx-confetti:after {
-  content: "✦ · ✧ · ✦";
-  position: absolute;
+.sk-wallpaper {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
-  inset: -12px 0 auto;
-  text-align: center;
-  font-size: 32px;
-  color: #ffe4a3;
-  letter-spacing: 12px;
-  animation: sp-spark 1.2s ease forwards;
+  overflow: hidden;
+}
+.sk-themed body {
+  background: var(--sk-base) !important;
+  color: var(--sk-text);
+}
+.sk-themed #wallpaper {
+  display: none;
+}
+.sk-themed #app-container,
+.sk-themed main.app {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+.sk-themed #main-content,
+.sk-themed #chat-area,
+.sk-themed #messages,
+.sk-themed .chat-messages,
+.sk-themed .conversation,
+.sk-themed .social-layout {
+  background: transparent !important;
+}
+.sk-themed #server-sidebar,
+.sk-themed #channel-sidebar,
+.sk-themed #member-sidebar,
+.sk-themed .friends-sidebar {
+  background: color-mix(in srgb, var(--sk-surface) 84%, transparent) !important;
+  backdrop-filter: blur(15px);
+}
+.sk-themed #chat-header,
+.sk-themed .chat-header,
+.sk-themed #user-profile-area,
+.sk-themed #message-input-wrapper,
+.sk-themed .chat-composer {
+  background: color-mix(in srgb, var(--sk-surface) 94%, transparent) !important;
+  color: var(--sk-text) !important;
+  border-color: var(--border-color) !important;
+}
+.sk-themed .message-bubble,
+.sk-themed .msg-content-wrapper {
+  color: var(--sk-text) !important;
+  background: color-mix(in srgb, var(--sk-surface) 95%, transparent) !important;
+  border-radius: 17px;
+}
+.sk-themed .msg-content-wrapper {
+  padding: 9px 12px;
+}
+.sk-themed .own .message-bubble {
+  background: var(--sk-accent) !important;
+  color: var(--sk-ink) !important;
+}
+.sk-themed .message-text,
+.sk-themed .message-bubble p {
+  color: inherit !important;
+}
+.sk-themed textarea,
+.sk-themed .chat-composer textarea {
+  color: var(--sk-text) !important;
+}
+.sk-themed .chat-composer textarea::placeholder {
+  color: var(--sk-muted) !important;
+}
+.sk-themed .chat-composer .primary {
+  background: var(--sk-accent);
+  color: var(--sk-ink);
+}
+.sk-themed .friend-avatar.initial {
+  background: var(--sk-surface);
+  color: var(--sk-accent);
+}
+.sk-themed .message-username {
+  color: var(--sk-text);
+}
+.sp-fx-confetti,
+.sp-fx-sparkle,
+.sp-fx-echo {
+  position: relative;
 }
 .sp-fx-bounce {
-  animation: sp-bounce 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: sp-bounce 2s ease;
 }
 .sp-fx-reveal {
-  animation: sp-reveal 0.8s ease;
+  animation: sp-reveal 2s ease;
 }
-@keyframes sp-enter {
+.sp-fx-gentle {
+  animation: sp-gentle 2s ease;
+}
+.sp-fx-slam {
+  animation: sp-slam 2s ease;
+}
+.sp-fx-echo {
+  animation: sp-echo 2s ease;
+}
+.sp-fx-float {
+  animation: sp-float 2s ease;
+}
+.sp-particles {
+  position: absolute;
+  inset: -8px 0 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+  border-radius: inherit;
+  min-height: 60px;
+}
+.sp-particles i {
+  position: absolute;
+  left: var(--x);
+  top: 0;
+  width: 6px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--color);
+  opacity: 0;
+  animation: sp-confetti 2s var(--delay) cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+}
+.sp-fx-sparkle .sp-particles i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  top: calc(var(--i) * 5%);
+  box-shadow: 0 0 8px var(--color);
+  animation-name: sp-sparkle;
+}
+.sp-loop,
+.sp-loop .sp-particles i {
+  animation-iteration-count: infinite !important;
+  animation-duration: 3.6s !important;
+}
+.sp-paused,
+.sp-paused .sp-particles i {
+  animation-play-state: paused !important;
+}
+@keyframes sp-sheet-in {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.97);
+    transform: translateY(14px) scale(0.98);
   }
   to {
     opacity: 1;
     transform: none;
   }
 }
-@keyframes sp-spark {
-  to {
+@keyframes sp-pop-in {
+  from {
     opacity: 0;
-    transform: translateY(-30px) scale(1.15);
+    transform: translateY(calc(-100% + 10px)) scale(0.96);
   }
-}
-@keyframes sp-pop {
-  50% {
-    transform: scale(1.025);
+  to {
+    opacity: 1;
+    transform: translateY(-100%);
   }
 }
 @keyframes sp-bounce {
-  30% {
-    transform: translateY(-9px) rotate(-1deg);
+  15% {
+    transform: translateY(-7px);
   }
-  60% {
-    transform: translateY(3px) rotate(0.4deg);
+  28% {
+    transform: translateY(3px);
+  }
+  40%,
+  100% {
+    transform: none;
   }
 }
 @keyframes sp-reveal {
-  from {
-    filter: blur(10px);
-    opacity: 0.1;
+  0% {
+    filter: blur(9px);
+    opacity: 0.25;
   }
-  to {
+  40%,
+  100% {
     filter: none;
     opacity: 1;
+  }
+}
+@keyframes sp-gentle {
+  0% {
+    transform: scale(0.88);
+    opacity: 0.4;
+  }
+  35%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes sp-slam {
+  0% {
+    transform: scale(1.15);
+  }
+  12% {
+    transform: scale(0.96) rotate(-1deg);
+  }
+  22%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes sp-echo {
+  15% {
+    text-shadow:
+      0 6px 0 #8885,
+      0 12px 0 #8882;
+  }
+  55%,
+  100% {
+    text-shadow: none;
+  }
+}
+@keyframes sp-float {
+  35% {
+    transform: translateY(-5px);
+  }
+  70%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes sp-confetti {
+  5% {
+    opacity: 1;
+    transform: translateY(-15px) rotate(0);
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), 110px) rotate(var(--rot));
+  }
+}
+@keyframes sp-sparkle {
+  10%,
+  70% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
   }
 }
 @media (max-width: 600px) {
   .sp-dialog {
     padding: 18px;
+    border-radius: 24px;
   }
-  .sp-dialog h2 {
-    font-size: 22px;
+  .sp-game-art {
+    height: 110px;
+    font-size: 38px;
   }
-  .sp-controls {
-    width: 100%;
-    margin: 4px 0;
+  .sp-game-picker strong {
+    font-size: 15px;
   }
-  .sp-controls button {
-    flex: 1;
-    padding: 8px 5px;
-    font-size: 12px;
-    min-height: 44px;
+  .sp-game-invite {
+    padding: 13px;
+    gap: 10px;
   }
-  .sp-board.four button {
+  .sp-game-emblem {
+    width: 44px;
+    font-size: 21px;
+  }
+  .sp-theme-grid {
+    gap: 7px;
+  }
+  .sp-theme-tile > b {
+    font-size: 10px;
+  }
+  .sp-dialog .sp-board.four button {
     font-size: 25px;
   }
-  .sp-games-list {
-    grid-template-columns: 1fr;
+  .sp-dialog .sp-row {
+    gap: 7px;
   }
-  .sp-tabs button {
+  .sp-dialog .sp-row > button {
     font-size: 12px;
+    padding: 10px;
   }
-  .sp-game-card {
-    min-width: 0;
-    width: 100%;
+  .sp-effect-sheet {
+    padding: 13px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .sp-dialog,
-  .sp-fx-confetti,
-  .sp-fx-reveal,
-  .sp-fx-bounce,
-  .sp-fx-confetti:after {
+  .sp-popover,
+  [class*="sp-fx-"],
+  .sp-particles i {
     animation: none !important;
   }
   .sp-dialog *,
-  .sp-room,
-  .sp-controls * {
+  .sp-popover * {
     transition: none !important;
+  }
+  .sk-wallpaper {
+    background-image: none !important;
   }
 }
 
-#chat-header:has(.sp-controls) {
-  flex-wrap: wrap;
-  height: auto;
-  min-height: 64px;
-  gap: 10px;
-  padding-block: 12px;
-  flex-shrink: 0;
-}
-#chat-header .sp-controls {
-  margin-left: auto;
-}
-.sp-room #msg-input {
-  color: #f5f5ff;
-}
-@media (max-width: 700px) {
-  #chat-header .sp-controls {
-    width: 100%;
-    margin-left: 0;
-  }
-}
+.sp-attachment-preview[hidden] { display: none !important; }
