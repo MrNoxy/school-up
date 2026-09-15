@@ -143,26 +143,52 @@ export function createSkipData({ auth, db, sdk }) {
     const [a, b] = [owner.key, other].sort(),
       dmId = a + "_" + b;
     const memberRef = ref(db, "dm_members/" + dmId);
+    const failure = (code, message) =>
+      Object.assign(new Error(message), { code: "schoolup/" + code });
+    const matches = (value) =>
+      value &&
+      typeof value === "object" &&
+      ((value.a === a && value.b === b) || (value.a === b && value.b === a));
+    let stage = "read";
     try {
+      // Imported membership is the authority. Opening a chat must not rewrite it,
+      // especially when a historical participant no longer has a profile.
+      const existing = (await get(memberRef)).val();
+      unchanged(owner);
+      if (existing !== null) {
+        if (!matches(existing))
+          throw failure(
+            "dm-members-invalid",
+            "This chat's imported participant record does not match. Check the a and b values inside its dm_members entry.",
+          );
+        return { dmId };
+      }
+      stage = "create";
+      // Only new conversations need a transaction. Rules continue to reject
+      // client claims on pre-existing history with no imported member record.
       const result = await runTransaction(
         memberRef,
-        (current) =>
-          current === null
-            ? { a, b }
-            : current.a === a && current.b === b
-              ? current
-              : undefined,
+        (current) => (current === null ? { a, b } : undefined),
         { applyLocally: false },
       );
       unchanged(owner);
-      if (!result.committed)
-        throw Error(
-          "This conversation has a conflicting member record. Contact the app owner.",
-        );
+      if (!result.committed) {
+        // Another device may have created the pair while our transaction retried.
+        const concurrent = (await get(memberRef)).val();
+        unchanged(owner);
+        if (!matches(concurrent))
+          throw failure(
+            "dm-members-invalid",
+            "This conversation has a conflicting participant record. Contact the app owner.",
+          );
+      }
     } catch (err) {
       if (/permission[-_]denied/i.test(err.code || err.message || ""))
-        throw Error(
-          "This conversation needs the Skip privacy update. Ask the app owner to apply the new database rules and prepare existing chats (SETUP.md).",
+        throw failure(
+          "dm-permission-denied",
+          stage === "read"
+            ? "Skip cannot read this chat's participant record. Check the published database rules and the dm_members import location."
+            : "This conversation needs the Skip privacy update. Its participant record could not be created. For an old chat, check that its entry was imported directly inside dm_members; for a new chat, both profiles must exist.",
         );
       throw err;
     }

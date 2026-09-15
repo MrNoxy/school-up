@@ -24,8 +24,8 @@ import {
   runTransaction,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-import { SKIP_CONFIG } from "./skip-config.js?v=spark2";
-import { createSkipData } from "./skip-data.js?v=spark2";
+import { SKIP_CONFIG } from "./skip-config.js?v=dmfix3";
+import { createSkipData } from "./skip-data.js?v=dmfix3";
 const S = window.SchoolUp,
   $ = (id) => document.getElementById(id),
   esc = S.esc,
